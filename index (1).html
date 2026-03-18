@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1a56db">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.png">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content='מקלט ר"ג'>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="מקלט קרוב">
+<title>מקלט קרוב — רמת גן</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+<style>
+:root{--bg:#f5f6fa;--surface:#ffffff;--surface2:#f0f2f8;--border:rgba(0,0,0,0.10);--red:#e63946;--red-glow:rgba(230,57,70,0.35);--green:#2ecc71;--text:#1a2340;--muted:#7a8aaa;--accent:#2563eb;}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;font-family:'Heebo',sans-serif;background:var(--bg);color:var(--text);overflow:hidden;}
+#app{display:flex;flex-direction:column;height:100vh;}
+#alert-bar{position:fixed;top:0;left:0;right:0;z-index:3000;background:var(--red);color:#fff;text-align:center;font-size:14px;font-weight:700;padding:10px 16px;display:none;animation:pulsebar 1.4s ease-in-out infinite;}
+@keyframes pulsebar{0%,100%{opacity:1}50%{opacity:0.65}}
+#header{position:relative;z-index:200;padding:12px 16px;background:var(--bg);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-shrink:0;}
+.logo-area{display:flex;align-items:center;gap:10px;}
+.logo-icon{width:40px;height:40px;background:var(--red);border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 0 22px var(--red-glow);flex-shrink:0;}
+.logo-text h1{font-size:17px;font-weight:900;letter-spacing:-0.4px;line-height:1.1;}
+.logo-text p{font-size:11px;color:var(--muted);}
+.btn-icon{width:38px;height:38px;border-radius:10px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.18s;flex-shrink:0;}
+.btn-icon:active{transform:scale(0.91);}
+.btn-icon.active{background:var(--green);border-color:var(--green);color:#000;}
+#map-wrap{flex:1;position:relative;overflow:hidden;min-height:0;}
+#map{width:100%;height:100%;}
+.leaflet-tile{filter:none;}
+#btn-locate{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);z-index:500;background:var(--red);color:#fff;border:none;border-radius:50px;padding:15px 30px;font-family:'Heebo',sans-serif;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 4px 28px var(--red-glow),0 2px 10px rgba(0,0,0,0.5);display:flex;align-items:center;gap:9px;transition:all 0.2s;white-space:nowrap;}
+#btn-locate:active{transform:translateX(-50%) scale(0.95);}
+#btn-locate.loading{background:#aab0c0;pointer-events:none;}
+.spinner{width:18px;height:18px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 0.8s linear infinite;display:none;}
+@keyframes spin{to{transform:rotate(360deg)}}
+#btn-locate.loading .spinner{display:block;}
+#btn-locate.loading .btn-txt{display:none;}
+#acc-toggle{position:absolute;top:12px;left:12px;z-index:500;background:rgba(255,255,255,0.95);border:1px solid var(--border);border-radius:10px;padding:8px 13px;font-family:'Heebo',sans-serif;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;display:flex;align-items:center;gap:6px;transition:all 0.2s;backdrop-filter:blur(8px);}
+#acc-toggle.active{background:rgba(46,204,113,0.18);color:var(--green);border-color:var(--green);}
+#status-card{position:absolute;top:12px;right:12px;z-index:500;background:rgba(255,255,255,0.95);border:1px solid var(--border);border-radius:12px;padding:9px 13px;font-size:12px;color:var(--muted);align-items:center;gap:7px;display:none;backdrop-filter:blur(10px);}
+#status-card.show{display:flex;}
+#status-dot{width:8px;height:8px;border-radius:50%;background:var(--green);animation:blink 1.5s ease-in-out infinite;flex-shrink:0;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.15}}
+#bottom-panel{position:relative;z-index:200;background:var(--surface);border-top:1px solid var(--border);max-height:48vh;overflow-y:auto;transform:translateY(100%);transition:transform 0.38s cubic-bezier(0.34,1.4,0.64,1);flex-shrink:0;}
+#bottom-panel.open{transform:translateY(0);}
+.panel-drag{width:38px;height:4px;background:var(--border);border-radius:2px;margin:10px auto 0;}
+.panel-hdr{padding:10px 18px 8px;display:flex;align-items:center;justify-content:space-between;}
+.panel-hdr h2{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px;}
+.panel-hdr span{font-size:12px;color:var(--muted);}
+.shelter-list{padding:0 12px 20px;display:flex;flex-direction:column;gap:8px;}
+.shelter-card{background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:14px 15px;cursor:pointer;transition:all 0.18s;position:relative;overflow:hidden;}
+.shelter-card::after{content:'';position:absolute;right:0;top:0;bottom:0;width:4px;background:var(--muted);border-radius:0 14px 14px 0;}
+.shelter-card.nearest::after{background:var(--red);}
+.shelter-card.is-acc::after{background:var(--green);}
+.shelter-card.nearest.is-acc::after{background:linear-gradient(to bottom,var(--red) 50%,var(--green) 50%);}
+.shelter-card:active{transform:scale(0.98);}
+.card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:6px;}
+.card-name{font-size:15px;font-weight:800;line-height:1.3;flex:1;}
+.badges{display:flex;flex-direction:column;gap:4px;align-items:flex-end;}
+.badge{font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;white-space:nowrap;}
+.badge-n{background:rgba(230,57,70,0.15);color:var(--red);border:1px solid rgba(230,57,70,0.4);}
+.badge-a{background:rgba(46,204,113,0.12);color:var(--green);border:1px solid rgba(46,204,113,0.35);}
+.card-addr{font-size:12px;color:var(--muted);margin-bottom:6px;}
+.card-nbr{font-size:11px;color:#4a5870;margin-bottom:8px;}
+.card-meta{display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
+.meta{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--muted);}
+.meta strong{color:var(--text);font-weight:700;}
+.card-note{margin-top:7px;font-size:11px;color:#6b7a99;padding:5px 10px;background:rgba(255,255,255,0.03);border-radius:8px;}
+.card-wifi{margin-top:6px;font-size:11px;color:var(--accent);padding:5px 10px;background:rgba(76,201,240,0.06);border-radius:8px;display:flex;align-items:center;gap:5px;}
+.card-actions{display:flex;gap:8px;margin-top:11px;}
+.btn-nav{flex:1;padding:11px 8px;border-radius:10px;border:none;font-family:'Heebo',sans-serif;font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all 0.18s;}
+.btn-waze{background:#00c2c2;color:#000;}
+.btn-google{background:#4285f4;color:#fff;}
+.btn-nav:active{transform:scale(0.95);}
+#loading{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;transition:opacity 0.5s;}
+#loading.hidden{opacity:0;pointer-events:none;}
+.load-icon{width:76px;height:76px;background:var(--red);border-radius:22px;display:flex;align-items:center;justify-content:center;font-size:40px;box-shadow:0 0 50px var(--red-glow);animation:loadpulse 1.4s ease-in-out infinite;}
+@keyframes loadpulse{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
+.load-title{font-size:24px;font-weight:900;}
+.load-sub{font-size:13px;color:var(--muted);}
+#toast{position:fixed;bottom:110px;left:50%;transform:translateX(-50%) translateY(20px);z-index:2000;background:#ffffff;border:1px solid var(--border);border-radius:12px;padding:11px 20px;font-size:13px;font-weight:600;opacity:0;transition:all 0.3s;white-space:nowrap;pointer-events:none;}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+#bottom-panel::-webkit-scrollbar{width:3px;}
+#bottom-panel::-webkit-scrollbar-thumb{background:var(--border);}
+</style>
+</head>
+<body>
+<div id="alert-bar">🚨 אזעקה! גש מיד למקלט הקרוב ביותר</div>
+<div id="loading"><div class="load-icon">🛡️</div><div class="load-title">מקלט קרוב</div><div class="load-sub">רמת גן • 135 מקלטים</div></div>
+<div id="app">
+  <div id="header">
+    <div class="logo-area">
+      <div class="logo-icon">🛡️</div>
+      <div class="logo-text"><h1>מקלט קרוב</h1><p>רמת גן • 135 מקלטים רשמיים</p></div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button class="btn-icon" id="btn-alert" title="סמלץ אזעקה">🚨</button>
+      <button class="btn-icon active" id="btn-acc-hdr" title="נגישות">♿</button>
+    </div>
+  </div>
+  <div id="map-wrap">
+    <div id="map"></div>
+    <div id="acc-toggle" class="active" onclick="toggleAcc()"><span>♿</span><span id="acc-label">נגיש בלבד</span></div>
+    <div id="status-card"><div id="status-dot"></div><span id="status-txt">ממקם...</span></div>
+    <button id="btn-locate" onclick="locateMe()">
+      <span class="btn-txt">📍 מצא מקלט קרוב</span>
+      <div class="spinner"></div>
+    </button>
+  </div>
+  <div id="bottom-panel">
+    <div class="panel-drag"></div>
+    <div class="panel-hdr"><h2 id="panel-title">מקלטים קרובים</h2><span id="panel-count"></span></div>
+    <div class="shelter-list" id="shelter-list"></div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+const SHELTERS = [{"id":1,"name":"מקלט נגיש - שלם 30","address":"שלם 30, רמת גן","neighborhood":"שכונת רמת שקמה","accessible":true,"note":"","wifi":"","lat":32.0498564,"lng":34.8148649,"geocoded":true},{"id":2,"name":"מקלט נגיש - בית ספר עתיד","address":"דרך נגבה 10, רמת גן","neighborhood":"שכונת מתחם נגבה","accessible":true,"note":"בית ספר עתיד","wifi":"miklat_adit","lat":32.0703835,"lng":34.8250346,"geocoded":true},{"id":3,"name":"מקלט נגיש - גן ילדים 84","address":"קפלן 6, רמת גן","neighborhood":"שכונת קריית בורוכוב","accessible":true,"note":"בשימוש גן ילדים מס 84","wifi":"Rg_miklat_24","lat":32.0687521,"lng":34.8199334,"geocoded":true},{"id":4,"name":"מקלט נגיש - גן הבושם","address":"עלומים 29, רמת גן","neighborhood":"שכונת אזור הבילויים","accessible":true,"note":"גן הבושם","wifi":"Rg_miklat_15","lat":32.0633029,"lng":34.8207082,"geocoded":true},{"id":5,"name":"מקלט נגיש - גן ילדים 125","address":"שרת משה 47, רמת גן","neighborhood":"שכונת בן גוריון","accessible":true,"note":"גן ילדים מס 125","wifi":"Rg_miklat_23","lat":32.0869593,"lng":34.8187998,"geocoded":true},{"id":6,"name":"מקלט נגיש - מועדון לבעלי מוגבלויות","address":"נוה יהושע 23, רמת גן","neighborhood":"שכונת נווה יהושע","accessible":true,"note":"מועדון לבעלי מוגבלויות","wifi":"nave-yejusha","lat":32.0628,"lng":34.8323,"geocoded":true},{"id":7,"name":"מקלט נגיש - מועדון קשישים","address":"שדרות הנרקיסים 42, רמת גן","neighborhood":"שכונת שיכון ותיקים","accessible":true,"note":"מועדון קשישים","wifi":"inbalim / pass:504000600","lat":32.0928,"lng":34.8118,"geocoded":true},{"id":8,"name":"מקלט נגיש - גן ילדים 21","address":"אלוף דוד 17, רמת גן","neighborhood":"שכונת רמת חן","accessible":true,"note":"משמש כגן ילדים מס 21","wifi":"Rg_miklat_18","lat":32.0576294,"lng":34.8253305,"geocoded":true},{"id":9,"name":"מקלט נגיש - גן ילדים 192","address":"אלוף דוד 187, רמת גן","neighborhood":"שכונת רמת חן","accessible":true,"note":"משמש כגן ילדים מס 192","wifi":"Rg_mikalt_16","lat":32.0541144,"lng":34.8139111,"geocoded":true},{"id":10,"name":"מקלט נגיש - ספריית רמת חן","address":"אלוף דוד 55, רמת גן","neighborhood":"שכונת רמת חן","accessible":true,"note":"ספריית רמת חן","wifi":"Miklat-17","lat":32.0576294,"lng":34.8253305,"geocoded":true},{"id":11,"name":"מקלט - אחד העם 58","address":"אחד העם 58, רמת גן","neighborhood":"שכונת רמת שקמה","accessible":false,"note":"","wifi":"Rg_miklat_6 / Pass:12345678","lat":32.0476541,"lng":34.8148363,"geocoded":true},{"id":12,"name":"מקלט - אחד העם 46","address":"אחד העם 46, רמת גן","neighborhood":"שכונת רמת שקמה","accessible":false,"note":"","wifi":"","lat":32.048671,"lng":34.8192956,"geocoded":true},{"id":13,"name":"מקלט - יהושפט 11","address":"יהושפט 11, רמת גן","neighborhood":"שכונת רמת שקמה","accessible":false,"note":"","wifi":"Rg_miklat_6","lat":32.0494318,"lng":34.819663,"geocoded":true},{"id":14,"name":"מקלט - סן מרטין 5","address":"סן מרטין 5, רמת גן","neighborhood":"שכונת רמת חן","accessible":false,"note":"","wifi":"Rg_Miklat_62","lat":32.0528297,"lng":34.8216596,"geocoded":true},{"id":15,"name":"מקלט - סן מרטין 11","address":"סן מרטין 11, רמת גן","neighborhood":"שכונת רמת חן","accessible":false,"note":"","wifi":"Rg_miklat_60","lat":32.0526689,"lng":34.8220643,"geocoded":true},{"id":16,"name":"מקלט - סן מרטין 17","address":"סן מרטין 17, רמת גן","neighborhood":"שכונת רמת חן","accessible":false,"note":"","wifi":"Rg_miklat_63","lat":32.0533702,"lng":34.8227017,"geocoded":true},{"id":17,"name":"מקלט - בני הנביאים 16","address":"בני הנביאים 16, רמת גן","neighborhood":"שכונת רמת שקמה","accessible":false,"note":"","wifi":"Rg_miklat_4","lat":32.0525969,"lng":34.8178914,"geocoded":true},{"id":18,"name":"מקלט - שד' בן צבי 36","address":"שדרות בן צבי 36, רמת גן","neighborhood":"שכונת שיכון צנחנים","accessible":false,"note":"","wifi":"Rg_mikalt_76","lat":32.0577902,"lng":34.8278645,"geocoded":true},{"id":19,"name":"מקלט - הירדן 83","address":"הירדן 83, רמת גן","neighborhood":"שכונת נווה יהושע","accessible":false,"note":"","wifi":"MIKLAT-53","lat":32.0617586,"lng":34.8283402,"geocoded":true},{"id":20,"name":"מקלט - שד' הצנחנים 11","address":"שדרות הצנחנים 11, רמת גן","neighborhood":"שכונת מתחם נגבה","accessible":false,"note":"","wifi":"Rg_miklat_85","lat":32.0678105,"lng":34.8244616,"geocoded":true},{"id":21,"name":"מקלט - השר משה 3","address":"השר משה 3, רמת גן","neighborhood":"שכונת מתחם נגבה","accessible":false,"note":"","wifi":"","lat":32.0667568,"lng":34.8243809,"geocoded":true},{"id":22,"name":"מקלט - הרא\"ה 239","address":"הרא\"ה 239, רמת גן","neighborhood":"שכונת מתחם נגבה","accessible":false,"note":"","wifi":"","lat":32.0701217,"lng":34.8247482,"geocoded":true},{"id":23,"name":"מקלט - העמל 23","address":"העמל 23, רמת גן","neighborhood":"שכונת נחלת גנים","accessible":false,"note":"","wifi":"","lat":32.093962,"lng":34.8204657,"geocoded":true},{"id":24,"name":"מקלט - הלפיד 3","address":"הלפיד 3, רמת גן","neighborhood":"שכונת נחלת גנים","accessible":false,"note":"","wifi":"","lat":32.0919609,"lng":34.8217416,"geocoded":true},{"id":25,"name":"מקלט - יוסף הגלילי 16","address":"יוסף הגלילי 16, רמת גן","neighborhood":"שכונת בן גוריון","accessible":false,"note":"","wifi":"","lat":32.0884668,"lng":34.8198125,"geocoded":true},{"id":26,"name":"מקלט - רוקח 143","address":"רוקח 143, רמת גן","neighborhood":"שכונת איצטדיון","accessible":false,"note":"","wifi":"Rg_Miklat_60","lat":32.095979,"lng":34.8185505,"geocoded":true},{"id":27,"name":"מקלט - רש\"י 13","address":"רש\"י 13, רמת גן","neighborhood":"שכונת נחלת גנים","accessible":false,"note":"","wifi":"","lat":32.0911595,"lng":34.8183017,"geocoded":true},{"id":28,"name":"מקלט - שקדיה 7","address":"שקדיה 7, רמת גן","neighborhood":"שכונת גפן","accessible":false,"note":"","wifi":"MIKLAT_44 / pass: Aa102030","lat":32.0887403,"lng":34.8123056,"geocoded":true},{"id":29,"name":"מקלט - ביאליק 34","address":"ביאליק 34, רמת גן","neighborhood":"שכונת מרכז העיר","accessible":false,"note":"","wifi":"mencave / pass:Vadim123","lat":32.0822998,"lng":34.8149058,"geocoded":true},{"id":30,"name":"מקלט - בועז 10","address":"בועז 10, רמת גן","neighborhood":"שכונת ראשונים","accessible":false,"note":"","wifi":"","lat":32.0802261,"lng":34.8083958,"geocoded":true},{"id":31,"name":"מקלט - ההגנה 17","address":"ההגנה 17, רמת גן","neighborhood":"שכונת רמת עמידר","accessible":false,"note":"","wifi":"Rg_miklat_72","lat":32.0679887,"lng":34.8376369,"geocoded":true},{"id":32,"name":"מקלט - שד' הילד 5","address":"שדרות הילד 5, רמת גן","neighborhood":"שכונת מרכז העיר","accessible":false,"note":"","wifi":"","lat":32.0868461,"lng":34.8133659,"geocoded":true},{"id":33,"name":"מקלט - הרצל 60","address":"הרצל 60, רמת גן","neighborhood":"שכונת מרכז העיר","accessible":false,"note":"","wifi":"","lat":32.0851252,"lng":34.8154885,"geocoded":true},{"id":34,"name":"מקלט - תל חי כ\"א 6","address":"תל חי 6, רמת גן","neighborhood":"שכונת כפר אז'ר","accessible":false,"note":"","wifi":"MIKLAT-131","lat":32.0683033,"lng":34.8278935,"geocoded":true},{"id":35,"name":"מקלט - הבנים כ\"א 20","address":"הבנים 20, רמת גן","neighborhood":"שכונת כפר אז'ר","accessible":false,"note":"","wifi":"MIKLAT-132","lat":32.0838992,"lng":34.8249448,"geocoded":true},{"id":36,"name":"מקלט - עליה ראשונה 7","address":"עליה ראשונה 7, רמת גן","neighborhood":"שכונת נווה יהושע","accessible":false,"note":"","wifi":"Miklat-75","lat":32.0631,"lng":34.8338,"geocoded":true},{"id":37,"name":"מקלט - המחתרת 9","address":"המחתרת 9, רמת גן","neighborhood":"שכונת רמת עמידר","accessible":false,"note":"","wifi":"MIKLAT-56","lat":32.0674546,"lng":34.8357581,"geocoded":true},{"id":38,"name":"מקלט - נשיאי ישראל 5","address":"נשיאי ישראל 5, רמת גן","neighborhood":"שכונת שיכון צנחנים","accessible":false,"note":"","wifi":"Miklat-77","lat":32.0543904,"lng":34.832321,"geocoded":true},{"id":39,"name":"מקלט - ההגנה 41","address":"ההגנה 41, רמת גן","neighborhood":"שכונת רמת עמידר","accessible":false,"note":"","wifi":"Rg_miklat_57","lat":32.069327,"lng":34.8347992,"geocoded":true},{"id":40,"name":"מקלט - עידו 11","address":"עידו 11, רמת גן","neighborhood":"שכונת רמת חן","accessible":false,"note":"","wifi":"Miklat-12","lat":32.0754676,"lng":34.8196095,"geocoded":true},{"id":41,"name":"מקלט - שדרות ויצ\"ו 10","address":"שדרות ויצו 10, רמת גן","neighborhood":"שכונת רמת שקמה","accessible":false,"note":"מאחורי עזריאל 4","wifi":"Rg_miklat_69","lat":32.0512,"lng":34.8196,"geocoded":true},{"id":42,"name":"מקלט - דב פרידמן 32","address":"דב פרידמן 32, רמת גן","neighborhood":"שכונת ראשונים","accessible":false,"note":"","wifi":"","lat":32.0810724,"lng":34.8017807,"geocoded":true},{"id":43,"name":"מקלט - ארלוזורוב 52","address":"ארלוזורוב 52, רמת גן","neighborhood":"שכונת חשמונאים","accessible":false,"note":"","wifi":"Rg_miklat_43","lat":32.0821697,"lng":34.8044092,"geocoded":true},{"id":44,"name":"מקלט - דרך נגבה 55","address":"דרך נגבה 55, רמת גן","neighborhood":"שכונת מרום נווה","accessible":false,"note":"","wifi":"","lat":32.0703357,"lng":34.8284464,"geocoded":true},{"id":45,"name":"מקלט - הרצל 57","address":"הרצל 57, רמת גן","neighborhood":"שכונת מרכז העיר","accessible":false,"note":"","wifi":"","lat":32.0847717,"lng":34.8150236,"geocoded":true},{"id":46,"name":"מקלט - דרך התפוצות 9","address":"דרך התפוצות 9, רמת גן","neighborhood":"שכונת רמת עמידר","accessible":false,"note":"","wifi":"Rg_miklat_73","lat":32.0681,"lng":34.8362,"geocoded":true},{"id":47,"name":"מקלט - שלום עליכם 18","address":"שלום עליכם 18, רמת גן","neighborhood":"שכונת רמת שקמה","accessible":false,"note":"","wifi":"MIKLAT-88","lat":32.0522955,"lng":34.821201,"geocoded":true},{"id":48,"name":"מקלט - ביאליק 77","address":"ביאליק 77, רמת גן","neighborhood":"שכונת חשמונאים","accessible":false,"note":"","wifi":"","lat":32.0852857,"lng":34.8107902,"geocoded":true},{"id":49,"name":"מקלט - הרצל 24","address":"הרצל 24, רמת גן","neighborhood":"שכונת מרכז העיר","accessible":false,"note":"","wifi":"MIKLAT_39 / pass: Aa102030","lat":32.0819823,"lng":34.8166592,"geocoded":true},{"id":50,"name":"מקלט - שלם 30","address":"שלם 30, רמת גן","neighborhood":"שכונת רמת שקמה","accessible":false,"note":"","wifi":"","lat":32.0498564,"lng":34.8148649,"geocoded":true},{"id":51,"name":"מקלט - ארלוזרוב 3","address":"ארלוזורוב 3, רמת גן","neighborhood":"שכונת חשמונאים","accessible":false,"note":"","wifi":"Rg_miklat_41","lat":32.0791388,"lng":34.8146204,"geocoded":true},{"id":52,"name":"מקלט - ברנשטיין פרץ 25","address":"ברנשטיין פרץ 25, רמת גן","neighborhood":"שכונת שיכון צנחנים","accessible":false,"note":"","wifi":"MIKLAT-71","lat":32.0582544,"lng":34.8277867,"geocoded":true},{"id":53,"name":"מקלט - ארלוזורוב 5","address":"ארלוזורוב 5, רמת גן","neighborhood":"שכונת חשמונאים","accessible":false,"note":"","wifi":"","lat":32.0791675,"lng":34.8143457,"geocoded":true},{"id":54,"name":"מקלט - שז\"ר 54","address":"שז\"ר 54, רמת גן","neighborhood":"שכונת שיכון צנחנים","accessible":false,"note":"בגינה","wifi":"Miklat-78","lat":32.053703,"lng":34.8315429,"geocoded":true},{"id":55,"name":"מקלט - ביאליק 105","address":"ביאליק 105, רמת גן","neighborhood":"שכונת חרוזים","accessible":false,"note":"2 כניסות","wifi":"MIKLAT-33","lat":32.0849863,"lng":34.8122928,"geocoded":true},{"id":56,"name":"מקלט - שלם 1 (אורט אבין)","address":"שלם 1, רמת גן","neighborhood":"שכונת רמת שקמה","accessible":false,"note":"בית ספר אורט אבין","wifi":"MIKLAT-128","lat":32.0537111,"lng":34.8122842,"geocoded":true},{"id":57,"name":"מקלט - גאולים 3","address":"גאולים 3, רמת גן","neighborhood":"שכונת גפן","accessible":false,"note":"בית ספר אושה","wifi":"Rg_mikalt_95","lat":32.0904403,"lng":34.8146177,"geocoded":true},{"id":58,"name":"מקלט - החולה 4","address":"החולה 4, רמת גן","neighborhood":"שכונת נווה יהושע","accessible":false,"note":"בית ספר ארנון","wifi":"MIKLAT-94","lat":32.0623637,"lng":34.833849,"geocoded":true},{"id":59,"name":"מקלט - אלוף דוד 187","address":"אלוף דוד 187, רמת גן","neighborhood":"שכונת גבעת גאולה","accessible":false,"note":"בית ספר בית יעקב","wifi":"Rg_miklat_136","lat":32.0541144,"lng":34.8139111,"geocoded":true},{"id":60,"name":"מקלט - המאה ואחד 24","address":"המאה ואחד 24, רמת גן","neighborhood":"שכונת רמת חן","accessible":false,"note":"בית ספר בליך","wifi":"MIKLAT-118","lat":32.056666,"lng":34.8174165,"geocoded":true},{"id":61,"name":"מקלט - שרת משה 25","address":"שרת משה 25, רמת גן","neighborhood":"שכונת בן גוריון","accessible":false,"note":"בית ספר בן גוריון","wifi":"Rg_miklat_96","lat":32.0869593,"lng":34.8187998,"geocoded":true},{"id":62,"name":"מקלט - אלימלך 15","address":"אלימלך 15, רמת גן","neighborhood":"שכונת בן גוריון","accessible":false,"note":"בית ספר בנות חיל","wifi":"Rg_miklat_129","lat":32.0865607,"lng":34.8161127,"geocoded":true},{"id":63,"name":"מקלט - התקווה 20","address":"התקווה 20, רמת גן","neighborhood":"שכונת גפן","accessible":false,"note":"בית ספר גבעולים","wifi":"Rg_mikalt_98","lat":32.0886888,"lng":34.812861,"geocoded":true},{"id":64,"name":"מקלט - גולומב 6","address":"גולומב 6, רמת גן","neighborhood":"שכונת מרום נווה","accessible":false,"note":"בית ספר דתי לבנות","wifi":"Rg_mikalt_119","lat":32.0690889,"lng":34.8165709,"geocoded":true},{"id":65,"name":"מקלט - אהרונסון שרה 38","address":"אהרונסון שרה 38, רמת גן","neighborhood":"שכונת אזור הבילויים","accessible":false,"note":"בית ספר הבילויים","wifi":"Rg_mikalt_97","lat":32.0611741,"lng":34.8248628,"geocoded":true},{"id":66,"name":"מקלט - בנימין 28","address":"בנימין 28, רמת גן","neighborhood":"שכונת תל בנימין","accessible":false,"note":"בית ספר הגפן","wifi":"MIKLAT-99","lat":32.0848718,"lng":34.8065021,"geocoded":true},{"id":67,"name":"מקלט - החשמונאים 33","address":"החשמונאים 33, רמת גן","neighborhood":"שכונת חשמונאים","accessible":false,"note":"בית ספר החשמונאים","wifi":"chashmonaim_wifi","lat":32.0800363,"lng":34.8092845,"geocoded":true},{"id":68,"name":"מקלט - הגלגל 44","address":"הגלגל 44, רמת גן","neighborhood":"שכונת הלל","accessible":false,"note":"בית ספר הלל","wifi":"hilel-wifi / pass:@hilel0000","lat":32.080382,"lng":34.8239978,"geocoded":true},{"id":69,"name":"מקלט - הפודים 37","address":"הפודים 37, רמת גן","neighborhood":"שכונת נחלת גנים","accessible":false,"note":"בית ספר המנחיל","wifi":"pass:hamanhil123456","lat":32.0922413,"lng":34.8189925,"geocoded":true},{"id":70,"name":"מקלט - המתמיד 37","address":"המתמיד 37, רמת גן","neighborhood":"שכונת ראשונים","accessible":false,"note":"בית ספר המתמיד","wifi":"miklat_matmit","lat":32.080347,"lng":34.8063779,"geocoded":true},{"id":71,"name":"מקלט - הרא\"ה 212","address":"הרא\"ה 212, רמת גן","neighborhood":"שכונת מתחם נגבה","accessible":false,"note":"בית ספר הראה","wifi":"Rg_Mikalt_90","lat":32.0671274,"lng":34.8241126,"geocoded":true},{"id":72,"name":"מקלט - מנדס 55","address":"מנדס 55, רמת גן","neighborhood":"שכונת קריית קריניצי","accessible":false,"note":"בית ספר ויצמן","wifi":"Rg_miklat_103","lat":32.0565262,"lng":34.8507014,"geocoded":true},{"id":73,"name":"מקלט - ארלוזורוב 61","address":"ארלוזורוב 61, רמת גן","neighborhood":"שכונת ראשונים","accessible":false,"note":"בית ספר חורב","wifi":"Rg_mikalt_114","lat":32.0821697,"lng":34.8044092,"geocoded":true},{"id":74,"name":"מקלט - אבישי 3","address":"אבישי 3, רמת גן","neighborhood":"שכונת תל יהודה","accessible":false,"note":"בית ספר חורב לבנות","wifi":"MIKLAT-115","lat":32.0715762,"lng":34.8236942,"geocoded":true},{"id":75,"name":"מקלט - גדעון 28","address":"גדעון 28, רמת גן","neighborhood":"שכונת תל גנים","accessible":false,"note":"בית ספר יאנוש קורצ'אק","wifi":"Rg_Miklat_105","lat":32.0673063,"lng":34.8182993,"geocoded":true},{"id":76,"name":"מקלט - אמנון ותמר 19","address":"אמנון ותמר 19, רמת גן","neighborhood":"שכונת מרום נווה","accessible":false,"note":"בית ספר מורדי הגטאות","wifi":"MIKALT-107","lat":32.0718315,"lng":34.8270067,"geocoded":true},{"id":77,"name":"מקלט - האם 14","address":"האם 14, רמת גן","neighborhood":"שכונת נווה יהושע","accessible":false,"note":"בית ספר מורשת משה","wifi":"Rg_miklat_92","lat":32.0587786,"lng":34.8320338,"geocoded":true},{"id":78,"name":"מקלט - פומבדיתא 16","address":"פומבדיתא 16, רמת גן","neighborhood":"שכונת רמת עמידר","accessible":false,"note":"בית ספר מכלל","wifi":"MIKLAT-108","lat":32.0693544,"lng":34.8358636,"geocoded":true},{"id":79,"name":"מקלט - עזריאל 28","address":"עזריאל 28, רמת גן","neighborhood":"שכונת רמת שקמה","accessible":false,"note":"בית ספר נטעים","wifi":"miklat_netaim","lat":32.0505514,"lng":34.8177099,"geocoded":true},{"id":80,"name":"מקלט - מוזס נח 10","address":"מוזס נח 10, רמת גן","neighborhood":"שכונת שיכון ותיקים","accessible":false,"note":"בית ספר ניצנים","wifi":"MIKLAT-110","lat":32.0936134,"lng":34.8115058,"geocoded":true},{"id":81,"name":"מקלט - אחד העם 66","address":"אחד העם 66, רמת גן","neighborhood":"שכונת פארק לאומי","accessible":false,"note":"בית ספר סביון","wifi":"Rg_mikalt_115","lat":32.048671,"lng":34.8192956,"geocoded":true},{"id":82,"name":"מקלט - האגדה 13","address":"האגדה 13, רמת גן","neighborhood":"שכונת עליות","accessible":false,"note":"בית ספר עליות","wifi":"Miklat-111","lat":32.0750544,"lng":34.826251,"geocoded":true},{"id":83,"name":"מקלט - דרך נגבה 10","address":"דרך נגבה 10, רמת גן","neighborhood":"שכונת מתחם נגבה","accessible":false,"note":"בית ספר עתיד","wifi":"miklat_adit","lat":32.0703835,"lng":34.8250346,"geocoded":true},{"id":84,"name":"מקלט - שד' האורנים 2","address":"שדרות האורנים 2, רמת גן","neighborhood":"שכונת רמת אפעל","accessible":false,"note":"בית ספר רמת אפעל","wifi":"Rg_Miklat_134","lat":32.0461612,"lng":34.8359492,"geocoded":true},{"id":85,"name":"מקלט - רמת חן 41","address":"רמת חן 41, רמת גן","neighborhood":"שכונת רמת חן","accessible":false,"note":"בית ספר רמת חן","wifi":"ramat_chen_wifi","lat":32.054403,"lng":34.8168431,"geocoded":true},{"id":86,"name":"מקלט - תל חי 3","address":"תל חי 3, רמת גן","neighborhood":"שכונת מתחם נגבה","accessible":false,"note":"בית ספר ש. אביגור","wifi":"Rg_mikalt_113","lat":32.0545572,"lng":34.8424646,"geocoded":true},{"id":87,"name":"מקלט - בן אליעזר אריה 15 (שלום)","address":"בן אליעזר אריה 15, רמת גן","neighborhood":"שכונת רמת עמידר","accessible":false,"note":"בית ספר שלום","wifi":"Rg_miklat_8","lat":32.0638075,"lng":34.8329514,"geocoded":true},{"id":88,"name":"מקלט - עוזיאל 106","address":"עוזיאל 106, רמת גן","neighborhood":"שכונת קריית בורוכוב","accessible":false,"note":"בית ספר תיכון חדש","wifi":"Rg_mikalt_106","lat":32.0738777,"lng":34.8231251,"geocoded":true},{"id":89,"name":"מקלט - דרך בן גוריון 233","address":"דרך בן גוריון 233, רמת גן","neighborhood":"שכונת קריית בורוכוב","accessible":false,"note":"בן גוריון 233 פינת השחרור 1","wifi":"","lat":32.0979234,"lng":34.8245218,"geocoded":true},{"id":90,"name":"מקלט - מצדה 41","address":"מצדה 41, רמת גן","neighborhood":"שכונת רמת חן","accessible":false,"note":"בשדרה","wifi":"MIKALT-80","lat":32.0566286,"lng":34.8236841,"geocoded":true},{"id":91,"name":"מקלט - מצדה 15","address":"מצדה 15, רמת גן","neighborhood":"שכונת רמת חן","accessible":false,"note":"בשדרה","wifi":"Rg_miklat_81","lat":32.0561765,"lng":34.8206053,"geocoded":true},{"id":92,"name":"מקלט - שד' הצנחנים 31","address":"שדרות הצנחנים 31, רמת גן","neighborhood":"שכונת מתחם נגבה","accessible":false,"note":"בתוך הגינה","wifi":"MIKLAT-86","lat":32.0678105,"lng":34.8244616,"geocoded":true},{"id":93,"name":"מקלט - אבא הלל 115","address":"אבא הלל 115, רמת גן","neighborhood":"שכונת שיכון ותיקים","accessible":false,"note":"גינת השושנים","wifi":"Rg_Miklat_61","lat":32.0924492,"lng":34.8150403,"geocoded":true},{"id":94,"name":"מקלט - הגולן 13","address":"הגולן 13, רמת גן","neighborhood":"שכונת רמת עמידר","accessible":false,"note":"גן אלי כהן","wifi":"Rg_miklat_7","lat":32.0669751,"lng":34.8340598,"geocoded":true},{"id":95,"name":"מקלט - המאה ואחד 5","address":"המאה ואחד 5, רמת גן","neighborhood":"שכונת רמת חן","accessible":false,"note":"גן אלישע","wifi":"Rg_miklat_89","lat":32.056666,"lng":34.8174165,"geocoded":true},{"id":96,"name":"מקלט - עלומים 29","address":"עלומים 29, רמת גן","neighborhood":"שכונת אזור הבילויים","accessible":false,"note":"גן הבושם","wifi":"Rg_miklat_15","lat":32.0633029,"lng":34.8207082,"geocoded":true},{"id":97,"name":"מקלט - מרדכי 15","address":"מרדכי 15, רמת גן","neighborhood":"שכונת תל גנים","accessible":false,"note":"גן הלוחמים מערב","wifi":"Rg_miklat_83","lat":32.066117,"lng":34.8187254,"geocoded":true},{"id":98,"name":"מקלט - לויטה 18","address":"לויטה 18, רמת גן","neighborhood":"שכונת תל גנים","accessible":false,"note":"גן הלוחמים מזרח","wifi":"Rg_miklat_82","lat":32.0642054,"lng":34.8196181,"geocoded":true},{"id":99,"name":"מקלט - דרך התפוצות 76","address":"דרך התפוצות 76, רמת גן","neighborhood":"שכונת רמת עמידר","accessible":false,"note":"גן ידידיה, מול התפוצות 80","wifi":"einyakov / pass:0-547408531","lat":32.0688,"lng":34.8375,"geocoded":true},{"id":100,"name":"מקלט - שרת משה 47","address":"שרת משה 47, רמת גן","neighborhood":"שכונת בן גוריון","accessible":false,"note":"גן ילדים מס 125","wifi":"Rg_miklat_23","lat":32.0869593,"lng":34.8187998,"geocoded":true},{"id":101,"name":"מקלט - שד' הקונגרס 1","address":"שדרות הקונגרס 1, רמת גן","neighborhood":"שכונת אזור הבילויים","accessible":false,"note":"גן ששת הימים","wifi":"Sheshet","lat":32.0621965,"lng":34.8270009,"geocoded":true},{"id":102,"name":"מקלט - לנדרס 1","address":"לנדרס 1, רמת גן","neighborhood":"שכונת רמת עמידר","accessible":false,"note":"דרך התפוצות 57","wifi":"Rg_miklat_13","lat":32.0694893,"lng":34.8390072,"geocoded":true},{"id":103,"name":"מקלט - הראב\"ע 5","address":"הראב\"ע 5, רמת גן","neighborhood":"שכונת נווה רם","accessible":false,"note":"הראב\"ע בין 5-13","wifi":"Rg_miklat_2","lat":32.0707223,"lng":34.8335042,"geocoded":true},{"id":104,"name":"מקלט - גן ידידיה צפון","address":"דרך התפוצות 66, רמת גן","neighborhood":"שכונת רמת עמידר","accessible":false,"note":"ואדי כופר מאחורי התפוצות 66","wifi":"Rg_miklat_3","lat":32.0688,"lng":34.8365,"geocoded":true},{"id":105,"name":"מקלט - רוחמה 38","address":"רוחמה 38, רמת גן","neighborhood":"שכונת תל יהודה","accessible":false,"note":"ועד שכונתי","wifi":"Rg_miklat_74","lat":32.0718098,"lng":34.8216454,"geocoded":true},{"id":106,"name":"מקלט - שז\"ר 89","address":"שז\"ר 89, רמת גן","neighborhood":"שכונת פארק לאומי","accessible":false,"note":"חווה חקלאית","wifi":"Rg_miklat_79","lat":32.053703,"lng":34.8315429,"geocoded":true},{"id":107,"name":"מקלט - השורה 11","address":"השורה 11, רמת גן","neighborhood":"שכונת הלל","accessible":false,"note":"ישיבה תורנית","wifi":"Rg_mikalt_91","lat":32.0811848,"lng":34.823154,"geocoded":true},{"id":108,"name":"מקלט - שלם 1 (דרך הטייסים)","address":"שלם 1, רמת גן","neighborhood":"שכונת רמת שקמה","accessible":false,"note":"ליד תחנת הדלק דרך הטייסים","wifi":"Rg_miklat_87","lat":32.0537111,"lng":34.8122842,"geocoded":true},{"id":109,"name":"מקלט - שדרות ויצ\"ו 4","address":"שדרות ויצו 4, רמת גן","neighborhood":"שכונת רמת שקמה","accessible":false,"note":"מאחורי עזריאל 4","wifi":"MIKLAT-70","lat":32.051,"lng":34.8183,"geocoded":true},{"id":110,"name":"מקלט - נוה יהושע 23","address":"נוה יהושע 23, רמת גן","neighborhood":"שכונת נווה יהושע","accessible":false,"note":"מועדון לבעלי מוגבלויות","wifi":"nave-yejusha","lat":32.0628,"lng":34.8323,"geocoded":true},{"id":111,"name":"מקלט - רמז 5","address":"רמז 5, רמת גן","neighborhood":"שכונת קריית בורוכוב","accessible":false,"note":"מועדון קהילתי","wifi":"Rg_miklat_67","lat":32.0693334,"lng":34.8193935,"geocoded":true},{"id":112,"name":"מקלט - שד' הנרקיסים 42","address":"שדרות הנרקיסים 42, רמת גן","neighborhood":"שכונת שיכון ותיקים","accessible":false,"note":"מועדון קשישים","wifi":"inbalim / pass:504000600","lat":32.0928,"lng":34.8118,"geocoded":true},{"id":113,"name":"מקלט - לאן 25","address":"לאן 25, רמת גן","neighborhood":"שכונת חשמונאים","accessible":false,"note":"מועדון קשישים","wifi":"","lat":32.080249,"lng":34.8074826,"geocoded":true},{"id":114,"name":"מקלט - אנה פרנק 12","address":"אנה פרנק 12, רמת גן","neighborhood":"שכונת חרוזים","accessible":false,"note":"מכללת שנקר","wifi":"Rg_mikalt_122","lat":32.0899917,"lng":34.8030046,"geocoded":true},{"id":115,"name":"מקלט - החוגה ר\"א 6","address":"החוגה 6, רמת גן","neighborhood":"שכונת רמת אפעל","accessible":false,"note":"מרכז מסחרי","wifi":"Rg_miklat_133","lat":32.0459993,"lng":34.8341647,"geocoded":true},{"id":116,"name":"מקלט - לנדאו חיים 7","address":"לנדאו חיים 7, רמת גן","neighborhood":"שכונת מרום נווה","accessible":false,"note":"מרכז מסחרי מרום נווה","wifi":"","lat":32.072,"lng":34.8271,"geocoded":true},{"id":117,"name":"מקלט - בן אליעזר אריה 15 (פיס)","address":"בן אליעזר אריה 15, רמת גן","neighborhood":"שכונת נווה רם","accessible":false,"note":"מרכז פיס קהילתי","wifi":"Rg_miklat_93","lat":32.0638075,"lng":34.8329514,"geocoded":true},{"id":118,"name":"מקלט - אינשטיין 16","address":"אינשטיין 16, רמת גן","neighborhood":"שכונת אזור הבילויים","accessible":false,"note":"משמש את בית לזארוס","wifi":"inbalim / pass:504000600","lat":32.0630996,"lng":34.8262105,"geocoded":true},{"id":119,"name":"מקלט - שד' למדן 7","address":"שדרות למדן 7, רמת גן","neighborhood":"שכונת מרכז העיר","accessible":false,"note":"גן ילדים מס 140","wifi":"Rg_mikla_34","lat":32.0838,"lng":34.8148,"geocoded":true},{"id":120,"name":"מקלט - המתמיד 36","address":"המתמיד 36, רמת גן","neighborhood":"שכונת ראשונים","accessible":false,"note":"משמש ככיתות לימוד","wifi":"","lat":32.0826679,"lng":34.80704,"geocoded":true},{"id":121,"name":"מקלט - אבא ברדיצ'ב 4","address":"אבא ברדיצ'ב 4, רמת גן","neighborhood":"שכונת אזור הבילויים","accessible":false,"note":"סמטת איילה","wifi":"Rg_mikalt_84","lat":32.0619992,"lng":34.8233181,"geocoded":true},{"id":122,"name":"מקלט - עזריאל 22","address":"עזריאל 22, רמת גן","neighborhood":"שכונת רמת שקמה","accessible":false,"note":"כניסה מהצד של הבניין","wifi":"Rg_miklat_51","lat":32.0511496,"lng":34.8198702,"geocoded":true},{"id":123,"name":"מקלט - המעג\"ל 24","address":"המעגל 24, רמת גן","neighborhood":"שכונת חשמונאים","accessible":false,"note":"עירוני - אגף ההנדסה","wifi":"Rg_miklat_137","lat":32.081733,"lng":34.8129894,"geocoded":true},{"id":124,"name":"מקלט - האם 2","address":"האם 2, רמת גן","neighborhood":"שכונת נווה יהושע","accessible":false,"note":"פינת הררי","wifi":"MIKLAT-68","lat":32.0473043,"lng":34.8151174,"geocoded":true},{"id":125,"name":"מקלט - פנחס רוטנברג 84","address":"פנחס רוטנברג 84, רמת גן","neighborhood":"שכונת נווה רם","accessible":false,"note":"2 כניסות","wifi":"","lat":32.0642156,"lng":34.8220244,"geocoded":true},{"id":126,"name":"מקלט - אלכסנדרוני 28","address":"אלכסנדרוני 28, רמת גן","neighborhood":"שכונת רמת חן","accessible":false,"note":"צופי רמת חן","wifi":"Miklat-21","lat":32.0560829,"lng":34.8166327,"geocoded":true},{"id":127,"name":"מקלט - קריניצי 66","address":"קריניצי 66, רמת גן","neighborhood":"שכונת יהלום","accessible":false,"note":"צמוד לבי\"ס יהלם","wifi":"","lat":32.0835332,"lng":34.8195529,"geocoded":true},{"id":128,"name":"מקלט - קריניצי 80","address":"קריניצי 80, רמת גן","neighborhood":"שכונת בן גוריון","accessible":false,"note":"קריניצי 80 פינת הגת","wifi":"MIKLAT-36","lat":32.0852412,"lng":34.819984,"geocoded":true},{"id":129,"name":"מקלט - תל השומר","address":"תל השומר 1, רמת גן","neighborhood":"שכונת תל השומר","accessible":false,"note":"שיכון הרופאים","wifi":"MIKLAT-10","lat":32.0468815,"lng":34.8447686,"geocoded":true},{"id":130,"name":"מקלט - חיבת ציון 18","address":"חיבת ציון 18, רמת גן","neighborhood":"שכונת יד לבנים","accessible":false,"note":"תיאטרון אולב","wifi":"Rg_miklat_14","lat":32.0791871,"lng":34.8218434,"geocoded":true},{"id":131,"name":"מקלט - רוקח 118","address":"רוקח 118, רמת גן","neighborhood":"שכונת שיכון ותיקים","accessible":false,"note":"תיכון אהל שם","wifi":"Ohel-Shem Teachers / Ohel-Shem Students","lat":32.0951225,"lng":34.812329,"geocoded":true},{"id":132,"name":"מקלט - אלוף דוד 55","address":"אלוף דוד 55, רמת גן","neighborhood":"שכונת רמת חן","accessible":false,"note":"ספריית רמת חן","wifi":"Miklat-17","lat":32.0576294,"lng":34.8253305,"geocoded":true},{"id":133,"name":"מקלט - קפלן 6","address":"קפלן 6, רמת גן","neighborhood":"שכונת קריית בורוכוב","accessible":false,"note":"גן ילדים 84","wifi":"Rg_miklat_24","lat":32.0687521,"lng":34.8199334,"geocoded":true},{"id":134,"name":"מקלט - אלוף דוד 17","address":"אלוף דוד 17, רמת גן","neighborhood":"שכונת רמת חן","accessible":false,"note":"גן ילדים 21","wifi":"Rg_miklat_18","lat":32.0576294,"lng":34.8253305,"geocoded":true},{"id":135,"name":"מקלט - אלוף דוד 187 (ב)","address":"אלוף דוד 187, רמת גן","neighborhood":"שכונת רמת חן","accessible":false,"note":"גן ילדים 192","wifi":"Rg_mikalt_16","lat":32.0541144,"lng":34.8139111,"geocoded":true}];
+
+let map, userMarker, userCircle;
+let userLat=null, userLng=null;
+let accessibleOnly=true;
+let markers=[];
+
+function dist(a,b,c,d){const R=6371000,dL=(c-a)*Math.PI/180,dG=(d-b)*Math.PI/180;const x=Math.sin(dL/2)**2+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dG/2)**2;return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));}
+function fmt(m){return m<1000?`${Math.round(m)} מ'`:`${(m/1000).toFixed(1)} ק"מ`;}
+
+function makeIcon(emoji,color,size=34,glow=''){return L.divIcon({className:'',html:`<div style="width:${size}px;height:${size}px;background:${color};border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:${Math.round(size*0.52)}px;border:2px solid #fff;box-shadow:0 2px 14px ${glow||color}55;">${emoji}</div>`,iconSize:[size,size],iconAnchor:[size/2,size/2],popupAnchor:[0,-size/2]});}
+const ICON_RED=()=>makeIcon('🛡️','#e63946');
+const ICON_GREEN=()=>makeIcon('♿','#2ecc71');
+const ICON_STAR=()=>makeIcon('⭐','#e63946',46,'rgba(230,57,70,0.9)');
+const ICON_USER=()=>L.divIcon({className:'',html:`<div style="width:20px;height:20px;background:#4cc9f0;border-radius:50%;border:3px solid #fff;box-shadow:0 0 14px rgba(76,201,240,0.7);"></div>`,iconSize:[20,20],iconAnchor:[10,10]});
+
+function initApp(){
+  map=L.map('map',{center:[32.073,34.820],zoom:13,zoomControl:false,attributionControl:false});
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+  L.control.zoom({position:'bottomright'}).addTo(map);
+  renderMarkers();
+  document.getElementById('loading').classList.add('hidden');
+}
+
+function renderMarkers(nearestId=null){
+  markers.forEach(m=>map.removeLayer(m));markers=[];
+  const pool=accessibleOnly?SHELTERS.filter(s=>s.accessible):SHELTERS;
+  pool.forEach(s=>{
+    const icon=s.id===nearestId?ICON_STAR():(s.accessible?ICON_GREEN():ICON_RED());
+    const m=L.marker([s.lat,s.lng],{icon}).addTo(map).on('click',()=>scrollToCard(s.id));
+    markers.push(m);
+  });
+}
+
+function locateMe(){
+  const btn=document.getElementById('btn-locate');
+  btn.classList.add('loading');setStatus('ממקם...');
+  if(!navigator.geolocation){useDemoLoc();return;}
+  navigator.geolocation.getCurrentPosition(
+    p=>placeUser(p.coords.latitude,p.coords.longitude),
+    ()=>{toast('משתמש במיקום דמו');useDemoLoc();},
+    {timeout:8000,maximumAge:60000}
+  );
+}
+function useDemoLoc(){placeUser(32.0730,34.8200);}
+function placeUser(lat,lng){
+  userLat=lat;userLng=lng;
+  if(userMarker)map.removeLayer(userMarker);
+  if(userCircle)map.removeLayer(userCircle);
+  userMarker=L.marker([lat,lng],{icon:ICON_USER()}).addTo(map);
+  userCircle=L.circle([lat,lng],{radius:50,color:'#4cc9f0',fillColor:'#4cc9f0',fillOpacity:0.08,weight:1}).addTo(map);
+  findNearest();
+}
+
+function findNearest(){
+  const btn=document.getElementById('btn-locate');
+  const pool=accessibleOnly?SHELTERS.filter(s=>s.accessible):SHELTERS;
+  const sorted=pool.map(s=>{return{...s,d:dist(userLat,userLng,s.lat,s.lng)}}).sort((a,b)=>a.d-b.d);
+  if(!sorted.length){btn.classList.remove('loading');toast('לא נמצאו מקלטים. כבה פילטר נגישות.');return;}
+  const nearest=sorted[0];
+  renderMarkers(nearest.id);
+  map.flyToBounds(L.latLngBounds([[userLat,userLng],[nearest.lat,nearest.lng]]),{padding:[60,60],maxZoom:16});
+  setStatus(`${fmt(nearest.d)} ממך`);
+  renderPanel(sorted);
+  btn.classList.remove('loading');
+  setTimeout(openPanel,600);
+}
+
+function renderPanel(sorted){
+  document.getElementById('panel-count').textContent=`${sorted.length} מקלטים`;
+  const list=document.getElementById('shelter-list');
+  list.innerHTML='';
+  const top5=sorted.slice(0,5);
+  top5.forEach((s,i)=>{
+    const walk=Math.ceil(s.d/80);
+    const card=document.createElement('div');
+    card.className='shelter-card'+(i===0?' nearest':'')+(s.accessible?' is-acc':'');
+    card.id=`card-${s.id}`;
+    const wifiHtml=s.wifi?`<div class="card-wifi">📶 ${s.wifi}</div>`:'';
+    const noteHtml=s.note?`<div class="card-note">💡 ${s.note}</div>`:'';
+    card.innerHTML=`
+      <div class="card-top">
+        <div class="card-name">${s.name}</div>
+        <div class="badges">
+          ${i===0?'<span class="badge badge-n">קרוב ביותר</span>':''}
+          ${s.accessible?'<span class="badge badge-a">♿ נגיש</span>':''}
+        </div>
+      </div>
+      <div class="card-addr">📍 ${s.address}</div>
+      <div class="card-nbr">🏘️ ${s.neighborhood}</div>
+      <div class="card-meta">
+        <div class="meta">🚶 <strong>${walk} דק'</strong></div>
+        <div class="meta">📏 <strong>${fmt(s.d)}</strong></div>
+      </div>
+      ${noteHtml}${wifiHtml}
+      <div class="card-actions">
+        <button class="btn-nav btn-waze" onclick="navWaze(${s.lat},${s.lng},event)">🟦 Waze</button>
+        <button class="btn-nav btn-google" onclick="navGoogle(${s.lat},${s.lng},event)">🗺️ Google</button>
+      </div>`;
+    card.addEventListener('click',e=>{if(e.target.classList.contains('btn-nav'))return;map.flyTo([s.lat,s.lng],17);});
+    list.appendChild(card);
+  });
+  if(sorted.length>5){
+    const more=document.createElement('div');
+    more.style.cssText='text-align:center;padding:10px;font-size:12px;color:#6b7a99;';
+    more.textContent=`+ ${sorted.length-5} מקלטים נוספים בסביבה`;
+    list.appendChild(more);
+  }
+}
+
+function openPanel(){document.getElementById('bottom-panel').classList.add('open');}
+function scrollToCard(id){openPanel();setTimeout(()=>{const el=document.getElementById(`card-${id}`);if(el)el.scrollIntoView({behavior:'smooth',block:'nearest'});},400);}
+function navWaze(lat,lng,e){e&&e.stopPropagation();window.open(`https://waze.com/ul?ll=${lat},${lng}&navigate=yes`,'_blank');}
+function navGoogle(lat,lng,e){e&&e.stopPropagation();window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=walking`,'_blank');}
+
+function toggleAcc(){
+  accessibleOnly=!accessibleOnly;
+  document.getElementById('acc-toggle').classList.toggle('active',accessibleOnly);
+  document.getElementById('btn-acc-hdr').classList.toggle('active',accessibleOnly);
+  document.getElementById('acc-label').textContent=accessibleOnly?'נגיש בלבד':'כל המקלטים';
+  renderMarkers();
+  if(userLat)findNearest();
+  toast(accessibleOnly?'♿ מקלטים נגישים בלבד':'🛡️ כל 135 המקלטים');
+}
+document.getElementById('btn-acc-hdr').onclick=toggleAcc;
+
+document.getElementById('btn-alert').onclick=function(){
+  const bar=document.getElementById('alert-bar');
+  const on=bar.style.display==='block';
+  bar.style.display=on?'none':'block';
+  if(!on){
+    if(!userLat)placeUser(32.0730,34.8200);
+    else findNearest();
+    toast('🚨 אזעקה! מציג מקלט קרוב!');
+  }
+};
+
+function setStatus(txt){document.getElementById('status-txt').textContent=txt;document.getElementById('status-card').classList.add('show');}
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800);}
+
+// Load Leaflet
+window.APP_READY=true;
+function loadLeaflet(){
+  const s=document.createElement('script');
+  s.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';s.crossOrigin='';
+  s.onload=()=>{if(window.APP_READY)initApp();};
+  s.onerror=()=>{
+    const s2=document.createElement('script');
+    s2.src='https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';s2.crossOrigin='';
+    s2.onload=()=>{if(window.APP_READY)initApp();};
+    document.head.appendChild(s2);
+  };
+  document.head.appendChild(s);
+}
+loadLeaflet();
+</script>
+</body>
+</html>

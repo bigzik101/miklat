@@ -1,0 +1,27 @@
+{
+  "name": "מקלט קרוב - גוש דן",
+  "short_name": "מקלט",
+  "description": "מציאת מקלט חירום קרוב - גוש דן",
+  "start_url": "/miklat/",
+  "scope": "/miklat/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f5f6fa",
+  "theme_color": "#1a56db",
+  "lang": "he",
+  "dir": "rtl",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
